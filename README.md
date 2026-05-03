@@ -98,7 +98,7 @@ To build a real-world consultancy platform with secure authentication, structure
 ## 👩‍💻 Author
 
 **Jeevitha Sureshkumar**
-🔗 GitHub: https://github.com/Jeevithakaji
+🔗 GitHub: https://github.com/Jeevitha-suresh
 🔗 LinkedIn: https://linkedin.com/in/jeevithasureshkumar
 
 ---
