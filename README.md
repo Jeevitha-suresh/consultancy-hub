@@ -30,7 +30,7 @@ A full-stack job portal and consultancy management system that connects candidat
 
 * **Frontend:** React (Vite), Tailwind CSS
 * **Backend:** Node.js, Express.js
-* **Database:** MongoDB
+* **Database:** MySQL
 * **Authentication:** JWT, bcrypt
 
 ---
