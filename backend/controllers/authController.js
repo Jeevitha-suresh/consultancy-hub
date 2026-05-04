@@ -1,4 +1,4 @@
-const User = require('../models/User');
+const User = require('../models_sql/User');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 
@@ -16,7 +16,7 @@ exports.register = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    const userExists = await User.findOne({ email });
+    const userExists = await User.findOne({ where: { email } });
 
     if (userExists) {
       return res.status(400).json({ message: 'User already exists' });
@@ -32,12 +32,12 @@ exports.register = async (req, res) => {
 
     if (user) {
       res.status(201).json({
-        _id: user._id,
+        _id: user.id,
         name: user.name,
         email: user.email,
         role: user.role,
         mustChangePassword: user.mustChangePassword,
-        token: generateToken(user._id)
+        token: generateToken(user.id)
       });
     } else {
       res.status(400).json({ message: 'Invalid user data' });
@@ -55,17 +55,17 @@ exports.login = async (req, res) => {
     const { email, password } = req.body;
 
     // Check for user email
-    const user = await User.findOne({ email }).select('+password');
+    const user = await User.findOne({ where: { email } });
 
     if (user && (await user.matchPassword(password))) {
       res.json({
-        _id: user._id,
+        _id: user.id,
         name: user.name,
         email: user.email,
         role: user.role,
         profilePicture: user.profilePicture,
         mustChangePassword: user.mustChangePassword,
-        token: generateToken(user._id)
+        token: generateToken(user.id)
       });
     } else {
       res.status(401).json({ message: 'Invalid email or password' });
@@ -80,7 +80,7 @@ exports.login = async (req, res) => {
 // @access  Private
 exports.getMe = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
+    const user = await User.findByPk(req.user.id);
     res.json(user);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -102,8 +102,8 @@ exports.changePassword = async (req, res) => {
       return res.status(400).json({ message: 'New password must be at least 6 characters' });
     }
 
-    // Fetch user with password
-    const user = await User.findById(req.user.id).select('+password');
+    // Fetch user
+    const user = await User.findByPk(req.user.id);
 
     // Verify current password
     const isMatch = await user.matchPassword(currentPassword);

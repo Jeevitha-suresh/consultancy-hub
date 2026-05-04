@@ -12,8 +12,9 @@ const Login = () => {
 
   useEffect(() => {
     if (isSuccess || user) {
-      if (user?.role === 'Recruiter') navigate('/recruiter-dashboard', { replace: true });
-      else if (user?.role === 'Admin') navigate('/admin', { replace: true });
+      const role = user?.role?.toLowerCase();
+      if (role === 'recruiter') navigate('/recruiter-dashboard', { replace: true });
+      else if (role === 'admin') navigate('/admin', { replace: true });
       else navigate('/candidate-dashboard', { replace: true });
     }
     

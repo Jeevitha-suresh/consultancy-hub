@@ -3,18 +3,22 @@ const express = require('express');
 const cors = require('cors');
 const http = require('http');
 const { Server } = require('socket.io');
-const connectDB = require('./config/db');
+const { connectMySQL, sequelize } = require('./config/mysql_db');
 const path = require('path');
 
-// Connect to database
-connectDB().then(async () => {
-  // Admin Seeding Logic
-  const User = require('./models/User');
-  const bcrypt = require('bcryptjs');
+// Connect to MySQL
+connectMySQL().then(async () => {
+  // Sync Database
   try {
-    const admin = await User.findOne({ email: 'admin@consultancyhub.com' });
+    await sequelize.sync({ alter: true });
+    console.log('✅ MySQL Tables Synced');
+
+    // Admin Seeding Logic for MySQL
+    const User = require('./models_sql/User');
+    const admin = await User.findOne({ where: { email: 'admin@consultancyhub.com' } });
+    
     if (!admin) {
-      console.log('⚠️ No admin account found. Seeding default admin...');
+      console.log('⚠️ No admin account found in MySQL. Seeding default admin...');
       await User.create({
         name: 'Admin',
         email: 'admin@consultancyhub.com',
@@ -22,15 +26,12 @@ connectDB().then(async () => {
         role: 'Admin',
         mustChangePassword: false
       });
-      console.log('✅ Default admin account created successfully.');
+      console.log('✅ Default admin account created in MySQL.');
     } else {
-      // Ensure the default admin has the correct password (fix for previous double-hashing)
-      admin.password = 'Admin@123';
-      await admin.save();
-      console.log('✅ Admin account verified and password synced.');
+      console.log('✅ Admin account verified in MySQL.');
     }
   } catch (err) {
-    console.error('❌ Admin seeding error:', err.message);
+    console.error('❌ MySQL Initialization error:', err.message);
   }
 });
 
@@ -70,25 +71,32 @@ app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
 
 // Socket.io logic
-const Message = require('./models/Message');
+const { Message } = require('./models_sql');
 
 io.on('connection', (socket) => {
   console.log('A user connected:', socket.id);
   
   socket.on('join', (userId) => {
-    socket.join(userId);
+    socket.join(String(userId));
     console.log(`User ${userId} joined their personal room`);
   });
 
   socket.on('sendMessage', async (data) => {
     try {
-      const { sender, receiver, content } = data;
-      const message = await Message.create({ sender, receiver, content });
+      const { sender, receiver, content, _id, createdAt } = data;
       
-      // Emit to receiver
-      io.to(receiver).emit('receiveMessage', message);
-      // Emit back to sender so they can update UI without HTTP refetch
-      io.to(sender).emit('receiveMessage', message);
+      const messageJson = { 
+        _id: _id || Date.now(), 
+        senderId: sender, 
+        receiverId: receiver, 
+        sender, 
+        receiver, 
+        content,
+        createdAt: createdAt || new Date()
+      };
+
+      // Emit to receiver only (sender already updated locally via REST)
+      io.to(String(receiver)).emit('receiveMessage', messageJson);
     } catch (error) {
       console.error('Socket message error:', error);
     }

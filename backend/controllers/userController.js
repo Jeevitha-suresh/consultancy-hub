@@ -1,17 +1,15 @@
-const User = require('../models/User');
+const User = require('../models_sql/User');
+const { Op } = require('sequelize');
 
 // @desc    Get user profile by ID
 // @route   GET /api/users/:id
 // @access  Private
 exports.getUserProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id)
-      .select('-password')
-      .populate('connections', 'name profilePicture headline')
-      .populate('connectionRequests', 'name profilePicture headline');
+    const user = await User.findByPk(req.params.id);
 
     if (user) {
-      res.json(user);
+      res.json({ ...user.toJSON(), _id: user.id });
     } else {
       res.status(404).json({ message: 'User not found' });
     }
@@ -25,7 +23,7 @@ exports.getUserProfile = async (req, res) => {
 // @access  Private
 exports.updateUserProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
+    const user = await User.findByPk(req.user.id);
 
     if (user) {
       user.name = req.body.name || user.name;
@@ -48,7 +46,7 @@ exports.updateUserProfile = async (req, res) => {
       const updatedUser = await user.save();
       
       res.json({
-        _id: updatedUser._id,
+        _id: updatedUser.id,
         name: updatedUser.name,
         email: updatedUser.email,
         role: updatedUser.role,
@@ -74,14 +72,20 @@ exports.getUsers = async (req, res) => {
     const keyword = req.query.keyword
       ? {
           name: {
-            $regex: req.query.keyword,
-            $options: 'i',
+            [Op.like]: `%${req.query.keyword}%`
           },
         }
       : {};
 
-    const users = await User.find({ ...keyword, _id: { $ne: req.user._id } }).select('name profilePicture headline');
-    res.json(users);
+    const users = await User.findAll({ 
+      where: { 
+        ...keyword, 
+        id: { [Op.ne]: req.user.id } 
+      }
+    });
+    
+    const mapped = users.map(u => ({ ...u.toJSON(), _id: u.id }));
+    res.json(mapped);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

@@ -1,32 +1,36 @@
-const User = require('../models/User');
-const Notification = require('../models/Notification');
+const { User, Notification, Connection, Job, JobApplication } = require('../models_sql');
+const { Op } = require('sequelize');
 
 // @desc    Send connection request
-// @route   POST /api/connections/request/:id
-// @access  Private
 exports.sendRequest = async (req, res) => {
   try {
-    const userToConnect = await User.findById(req.params.id);
-    const currentUser = await User.findById(req.user._id);
+    const userToConnectId = req.params.id;
+    if (userToConnectId == req.user.id) return res.status(400).json({ message: 'Cannot connect to self' });
 
-    if (!userToConnect) {
-      return res.status(404).json({ message: 'User not found' });
+    const existing = await Connection.findOne({
+      where: {
+        [Op.or]: [
+          { userId: req.user.id, connectionId: userToConnectId },
+          { userId: userToConnectId, connectionId: req.user.id }
+        ]
+      }
+    });
+
+    if (existing) {
+      return res.status(400).json({ message: 'Request already exists or already connected' });
     }
 
-    // Check if already connected or request already sent
-    if (userToConnect.connections.includes(currentUser._id) || 
-        userToConnect.connectionRequests.includes(currentUser._id)) {
-      return res.status(400).json({ message: 'Request already sent or already connected' });
-    }
-
-    userToConnect.connectionRequests.push(currentUser._id);
-    await userToConnect.save();
+    await Connection.create({
+      userId: req.user.id,
+      connectionId: userToConnectId,
+      status: 'Pending'
+    });
 
     // Notify the target user
     await Notification.create({
-      recipient: userToConnect._id,
+      recipientId: userToConnectId,
       type: 'Connection',
-      relatedUser: currentUser._id
+      relatedUserId: req.user.id
     });
 
     res.json({ message: 'Connection request sent' });
@@ -36,29 +40,19 @@ exports.sendRequest = async (req, res) => {
 };
 
 // @desc    Accept connection request
-// @route   POST /api/connections/accept/:id
-// @access  Private
 exports.acceptRequest = async (req, res) => {
   try {
     const requestingUserId = req.params.id;
-    const currentUser = await User.findById(req.user._id);
-    const requestingUser = await User.findById(requestingUserId);
+    const connection = await Connection.findOne({
+      where: { userId: requestingUserId, connectionId: req.user.id, status: 'Pending' }
+    });
 
-    if (!currentUser.connectionRequests.includes(requestingUserId)) {
+    if (!connection) {
       return res.status(400).json({ message: 'No request found' });
     }
 
-    // Add to connections
-    currentUser.connections.push(requestingUserId);
-    requestingUser.connections.push(currentUser._id);
-
-    // Remove from requests
-    currentUser.connectionRequests = currentUser.connectionRequests.filter(
-      (id) => id.toString() !== requestingUserId.toString()
-    );
-
-    await currentUser.save();
-    await requestingUser.save();
+    connection.status = 'Accepted';
+    await connection.save();
 
     res.json({ message: 'Connection accepted' });
   } catch (error) {
@@ -67,24 +61,18 @@ exports.acceptRequest = async (req, res) => {
 };
 
 // @desc    Reject connection request
-// @route   POST /api/connections/reject/:id
-// @access  Private
 exports.rejectRequest = async (req, res) => {
   try {
     const requestingUserId = req.params.id;
-    const currentUser = await User.findById(req.user._id);
+    const connection = await Connection.findOne({
+      where: { userId: requestingUserId, connectionId: req.user.id, status: 'Pending' }
+    });
 
-    if (!currentUser.connectionRequests.includes(requestingUserId)) {
+    if (!connection) {
       return res.status(400).json({ message: 'No request found' });
     }
 
-    // Remove from requests
-    currentUser.connectionRequests = currentUser.connectionRequests.filter(
-      (id) => id.toString() !== requestingUserId.toString()
-    );
-
-    await currentUser.save();
-
+    await connection.destroy();
     res.json({ message: 'Connection rejected' });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -92,44 +80,56 @@ exports.rejectRequest = async (req, res) => {
 };
 
 // @desc    Get all connections
-// @route   GET /api/connections
-// @access  Private
 exports.getConnections = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id)
-      .populate('connections', 'name profilePicture headline')
-      .populate('connectionRequests', 'name profilePicture headline');
-      
-    let connections = [...user.connections];
+    // Accepted connections
+    const connections = await Connection.findAll({
+      where: {
+        status: 'Accepted',
+        [Op.or]: [{ userId: req.user.id }, { connectionId: req.user.id }]
+      }
+    });
 
-    const Job = require('../models/Job');
-    // If recruiter, also include applicants in the messaging list
-    if (req.user.role === 'Recruiter' || req.user.role === 'Admin') {
-      const jobs = await Job.find({ recruiter: req.user._id }).populate('applicants.user', 'name profilePicture headline');
-      
-      jobs.forEach(job => {
-        job.applicants.forEach(app => {
-          if (app.user && !connections.some(c => c._id.toString() === app.user._id.toString())) {
-            connections.push(app.user);
-          }
-        });
+    const friendIds = connections.map(c => c.userId == req.user.id ? c.connectionId : c.userId);
+    
+    // People who sent request to me (Pending)
+    const requests = await Connection.findAll({
+      where: { connectionId: req.user.id, status: 'Pending' },
+      include: [{ model: User, as: 'user', attributes: ['id', 'name', 'profilePicture', 'headline'] }]
+    });
+
+    const friends = await User.findAll({
+      where: { id: { [Op.in]: friendIds } },
+      attributes: ['id', 'name', 'profilePicture', 'headline']
+    });
+
+    // Handle cross-role connections (Recruiters <-> Applicants)
+    const extraIds = new Set();
+    const role = req.user.role.toLowerCase();
+
+    if (role === 'recruiter' || role === 'admin') {
+      const jobs = await Job.findAll({ 
+        where: { recruiterId: req.user.id },
+        include: [{ model: User, as: 'applicants', attributes: ['id'] }]
       });
+      jobs.forEach(j => j.applicants.forEach(a => extraIds.add(a.id)));
+    } else {
+      const applications = await JobApplication.findAll({
+        where: { UserId: req.user.id },
+        include: [{ model: Job, include: [{ model: User, as: 'recruiter', attributes: ['id'] }] }]
+      });
+      applications.forEach(a => { if(a.Job?.recruiter) extraIds.add(a.Job.recruiter.id); });
     }
 
-    // If candidate, also include recruiters of jobs they applied to
-    if (req.user.role === 'User') {
-      const appliedJobs = await Job.find({ 'applicants.user': req.user._id }).populate('recruiter', 'name profilePicture headline');
-      
-      appliedJobs.forEach(job => {
-        if (job.recruiter && !connections.some(c => c._id.toString() === job.recruiter._id.toString())) {
-          connections.push(job.recruiter);
-        }
-      });
-    }
-      
+    const finalFriendIds = [...new Set([...friendIds, ...extraIds])];
+    const finalFriends = await User.findAll({
+      where: { id: { [Op.in]: finalFriendIds } },
+      attributes: ['id', 'name', 'profilePicture', 'headline']
+    });
+
     res.json({
-      connections: connections,
-      requests: user.connectionRequests
+      connections: finalFriends.map(f => ({ ...f.toJSON(), _id: f.id })),
+      requests: requests.map(r => ({ ...r.user.toJSON(), _id: r.user.id }))
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

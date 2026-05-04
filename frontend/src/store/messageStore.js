@@ -7,17 +7,35 @@ let socket;
 
 export const useMessageStore = create((set, get) => ({
   messages: [],
+  conversations: [],
   isLoading: false,
   isError: false,
   message: '',
 
+  getConversations: async () => {
+    set({ isLoading: true });
+    try {
+      const token = JSON.parse(localStorage.getItem('user'))?.token;
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      const response = await axios.get(API_URL + 'conversations', config);
+      set({ conversations: response.data, isLoading: false, isError: false });
+    } catch (error) {
+      const message = error.response?.data?.message || error.message;
+      set({ isLoading: false, isError: true, message });
+    }
+  },
+
   initSocket: (userId) => {
     if (!socket) {
       socket = io('http://localhost:5000');
-      socket.emit('join', userId);
+      socket.emit('join', String(userId));
 
       socket.on('receiveMessage', (message) => {
-        set((state) => ({ messages: [...state.messages, message] }));
+        set((state) => {
+          const exists = state.messages.some(m => m._id === message._id);
+          if (exists) return state;
+          return { messages: [...state.messages, message] };
+        });
       });
     }
   },
@@ -42,13 +60,31 @@ export const useMessageStore = create((set, get) => ({
     }
   },
 
-  sendMessage: (senderId, receiverId, content) => {
-    if (socket) {
-      socket.emit('sendMessage', {
-        sender: senderId,
-        receiver: receiverId,
-        content
-      });
+  sendMessage: async (senderId, receiverId, content) => {
+    try {
+      const token = JSON.parse(localStorage.getItem('user'))?.token;
+      const config = { headers: { Authorization: `Bearer ${token}` } };
+      
+      const response = await axios.post(API_URL, { receiverId, content }, config);
+      const newMessage = response.data;
+
+      // Update local state immediately
+      set((state) => ({ 
+        messages: [...state.messages, { ...newMessage, sender: senderId, receiver: receiverId }] 
+      }));
+
+      // Also emit via socket for real-time update to the OTHER user
+      if (socket) {
+        socket.emit('sendMessage', {
+          sender: senderId,
+          receiver: receiverId,
+          content
+        });
+      }
+      return { success: true };
+    } catch (error) {
+      console.error('Send message error:', error);
+      return { success: false };
     }
   }
 }));

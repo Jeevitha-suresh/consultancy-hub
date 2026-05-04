@@ -15,7 +15,7 @@ const Admin = () => {
   const { updateProfile } = useUserStore();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const activeTab = searchParams.get('tab') || 'recruiters';
+  const activeTab = searchParams.get('tab') || 'users';
   const setActiveTab = (tab) => setSearchParams({ tab });
   const [toast, setToast] = useState(null);
 
@@ -141,8 +141,45 @@ const Admin = () => {
         </div>
       )}
 
+      {/* Header & Stats Overview */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-black text-slate-800 tracking-tight mb-2">Admin Command Center</h1>
+        <p className="text-slate-500 font-medium">Manage your consultancy hub users, recruiters, and platform settings.</p>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-8">
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+            <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center mb-4 text-emerald-600">
+              <Users className="w-6 h-6" />
+            </div>
+            <p className="text-2xl font-black text-slate-800">{users.length}</p>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Total Accounts</p>
+          </div>
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+            <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center mb-4 text-blue-600">
+              <UserPlus className="w-6 h-6" />
+            </div>
+            <p className="text-2xl font-black text-slate-800">{recruiters.length}</p>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Verified Recruiters</p>
+          </div>
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+            <div className="w-12 h-12 bg-amber-100 rounded-2xl flex items-center justify-center mb-4 text-amber-600">
+              <AlertCircle className="w-6 h-6" />
+            </div>
+            <p className="text-2xl font-black text-slate-800">{recruiters.filter(r => r.mustChangePassword).length}</p>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Pending Resets</p>
+          </div>
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+            <div className="w-12 h-12 bg-purple-100 rounded-2xl flex items-center justify-center mb-4 text-purple-600">
+              <ShieldCheck className="w-6 h-6" />
+            </div>
+            <p className="text-2xl font-black text-slate-800">Secure</p>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">System Status</p>
+          </div>
+        </div>
+      </div>
+
       {/* Tabs Selector (In-page) */}
-      <div className="flex flex-wrap gap-2 mb-2">
+      <div className="flex flex-wrap gap-2 mb-2 p-1.5 bg-slate-100/50 rounded-2xl w-fit">
         {[
           { id: 'recruiters', label: 'Recruiters', icon: <UserPlus className="w-4 h-4" /> },
           { id: 'users', label: 'All Users', icon: <Users className="w-4 h-4" /> },
@@ -152,10 +189,10 @@ const Admin = () => {
           <button
             key={t.id}
             onClick={() => setActiveTab(t.id)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-all
               ${activeTab === t.id 
-                ? 'bg-emerald-600 text-white shadow-md' 
-                : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-100'}`}
+                ? 'bg-white text-emerald-600 shadow-sm ring-1 ring-slate-200' 
+                : 'text-slate-500 hover:bg-white/50'}`}
           >
             {t.icon} {t.label}
           </button>

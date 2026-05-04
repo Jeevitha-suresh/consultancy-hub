@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import axios from 'axios';
+import { useAuthStore } from './authStore';
 
 const API_URL = 'http://localhost:5000/api/users/';
 
@@ -42,7 +43,9 @@ export const useUserStore = create((set, get) => ({
       
       // Update local storage user data to match new profile
       const currentUser = JSON.parse(localStorage.getItem('user'));
-      localStorage.setItem('user', JSON.stringify({ ...currentUser, ...response.data }));
+      const updatedUser = { ...currentUser, ...response.data };
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      useAuthStore.getState().setUser(updatedUser);
 
     } catch (error) {
       const message = (error.response && error.response.data && error.response.data.message) || error.message || error.toString();

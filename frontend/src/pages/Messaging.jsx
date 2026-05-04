@@ -2,12 +2,14 @@ import { useEffect, useState, useRef } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { useMessageStore } from '../store/messageStore';
 import { useConnectionStore } from '../store/connectionStore';
+import { useJobStore } from '../store/jobStore';
 import { MessageSquare, Send } from 'lucide-react';
 
 const Messaging = () => {
   const { user } = useAuthStore();
   const { connections, getConnections } = useConnectionStore();
-  const { messages, getMessages, sendMessage, initSocket, disconnectSocket } = useMessageStore();
+  const { messages, conversations, getMessages, getConversations, sendMessage, initSocket, disconnectSocket } = useMessageStore();
+  const { allApplicants, myApplications, getAllApplicants, getMyApplications } = useJobStore();
   
   const [selectedUser, setSelectedUser] = useState(null);
   const [content, setContent] = useState('');
@@ -15,13 +17,62 @@ const Messaging = () => {
 
   useEffect(() => {
     getConnections();
+    getConversations();
+    if (user?.role === 'Recruiter') {
+      getAllApplicants();
+    } else if (user?.role === 'User') {
+      getMyApplications();
+    }
+    
     if (user) {
       initSocket(user._id);
     }
     return () => {
       disconnectSocket();
     };
-  }, [user, getConnections, initSocket, disconnectSocket]);
+  }, [user, getConnections, getConversations, getAllApplicants, getMyApplications, initSocket, disconnectSocket]);
+
+  // Combine conversations, connections, and applicants/recruiters for a complete sidebar
+  const uniqueUsers = new Map();
+
+  // 1. Add people from conversations
+  conversations.forEach(c => {
+    uniqueUsers.set(String(c._id), { ...c });
+  });
+
+  // 2. Add connections
+  connections.forEach(conn => {
+    const id = String(conn._id || conn.id);
+    if (!uniqueUsers.has(id)) {
+      uniqueUsers.set(id, { ...conn, _id: id, headline: conn.headline || 'Network Member' });
+    }
+  });
+
+  // 3. Add applicants (if recruiter)
+  if (user?.role === 'Recruiter') {
+    allApplicants.forEach(app => {
+      if (app.user) {
+        const id = String(app.user._id || app.user.id);
+        if (!uniqueUsers.has(id)) {
+          uniqueUsers.set(id, { ...app.user, _id: id, headline: `Applicant: ${app.jobTitle}` });
+        }
+      }
+    });
+  }
+
+  // 4. Add recruiters (if user)
+  if (user?.role === 'User') {
+    myApplications.forEach(app => {
+      if (app.recruiter) {
+        const id = String(app.recruiter._id || app.recruiter.id);
+        if (!uniqueUsers.has(id)) {
+          uniqueUsers.set(id, { ...app.recruiter, _id: id, headline: `Recruiter: ${app.company || app.recruiter.company || 'Employer'}` });
+        }
+      }
+    });
+  }
+
+  const chatList = Array.from(uniqueUsers.values());
 
   useEffect(() => {
     if (selectedUser) {
@@ -53,28 +104,33 @@ const Messaging = () => {
             </h2>
           </div>
           <div className="overflow-y-auto flex-grow p-3 space-y-1">
-            {connections.length === 0 ? (
+            {chatList.length === 0 ? (
               <div className="py-20 text-center px-4">
-                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">No connections to message.</p>
+                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">No conversations yet.</p>
               </div>
             ) : (
-              connections.map((connection) => (
+              chatList.map((contact) => (
                 <div
-                  key={connection._id}
-                  onClick={() => setSelectedUser(connection)}
-                  className={`flex items-center p-4 rounded-2xl cursor-pointer transition-all duration-200 group ${selectedUser?._id === connection._id ? 'bg-white shadow-lg shadow-slate-200 ring-1 ring-emerald-500/20' : 'hover:bg-white/60'}`}
+                  key={contact._id}
+                  onClick={() => setSelectedUser(contact)}
+                  className={`flex items-center p-4 rounded-2xl cursor-pointer transition-all duration-200 group ${selectedUser?._id === contact._id ? 'bg-white shadow-lg shadow-slate-200 ring-1 ring-emerald-500/20' : 'hover:bg-white/60'}`}
                 >
                   <div className="relative">
                     <img
-                      src={connection.profilePicture.startsWith('/uploads') ? `http://localhost:5000${connection.profilePicture}` : (connection.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(connection.name)}&background=0d4f3f&color=fff`)}
-                      alt={connection.name}
+                      src={contact.profilePicture?.startsWith('/uploads') ? `http://localhost:5000${contact.profilePicture}` : (contact.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(contact.name)}&background=0d4f3f&color=fff`)}
+                      alt={contact.name}
                       className="h-12 w-12 rounded-xl object-cover shadow-sm"
                     />
                     <div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full"></div>
                   </div>
-                  <div className="ml-4 overflow-hidden">
-                    <h4 className={`font-bold text-sm transition-colors ${selectedUser?._id === connection._id ? 'text-emerald-700' : 'text-slate-900'}`}>{connection.name}</h4>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wide truncate mt-0.5">{connection.headline || 'Network Member'}</p>
+                  <div className="ml-4 overflow-hidden flex-1">
+                    <div className="flex justify-between items-baseline">
+                      <h4 className={`font-bold text-sm transition-colors truncate ${selectedUser?._id === contact._id ? 'text-emerald-700' : 'text-slate-900'}`}>{contact.name}</h4>
+                      {contact.timestamp && <span className="text-[9px] text-slate-400 font-medium">{new Date(contact.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
+                    </div>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wide truncate mt-0.5">
+                      {contact.lastMessage || contact.headline || 'Network Member'}
+                    </p>
                   </div>
                 </div>
               ))
@@ -105,7 +161,7 @@ const Messaging = () => {
               
               <div className="flex-grow p-6 overflow-y-auto space-y-6">
                 {messages.map((msg, index) => {
-                  const isMine = msg.sender === user._id;
+                  const isMine = msg.sender == user._id || msg.senderId == user._id;
                   return (
                     <div key={index} className={`flex ${isMine ? 'justify-end' : 'justify-start'} animate-slide-up`}>
                       <div className={`max-w-md px-5 py-3.5 rounded-[1.5rem] shadow-sm text-sm font-medium leading-relaxed ${isMine ? 'bg-emerald-600 text-white rounded-br-none shadow-emerald-900/10' : 'bg-white text-slate-700 border border-slate-100 rounded-bl-none'}`}>

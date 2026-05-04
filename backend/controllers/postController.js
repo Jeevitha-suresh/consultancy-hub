@@ -1,10 +1,6 @@
-const Post = require('../models/Post');
-const User = require('../models/User');
-const Notification = require('../models/Notification');
+const { Post, User, Notification, PostLike, Comment } = require('../models_sql');
 
 // @desc    Create a post
-// @route   POST /api/posts
-// @access  Private
 exports.createPost = async (req, res) => {
   try {
     const { content } = req.body;
@@ -15,122 +11,146 @@ exports.createPost = async (req, res) => {
     }
 
     const post = await Post.create({
-      author: req.user._id,
+      authorId: req.user.id,
       content,
       image
     });
 
-    const populatedPost = await Post.findById(post._id).populate('author', 'name profilePicture headline');
+    const populatedPost = await Post.findByPk(post.id, {
+      include: [{ model: User, as: 'author', attributes: ['name', 'profilePicture', 'headline'] }]
+    });
     
-    res.status(201).json(populatedPost);
+    res.status(201).json({ ...populatedPost.toJSON(), _id: populatedPost.id });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// @desc    Get all posts (Feed)
-// @route   GET /api/posts
-// @access  Private
+// @desc    Get all posts
 exports.getPosts = async (req, res) => {
   try {
-    const posts = await Post.find()
-      .populate('author', 'name profilePicture headline')
-      .populate('comments.user', 'name profilePicture')
-      .sort({ createdAt: -1 });
-    res.json(posts);
+    const posts = await Post.findAll({
+      include: [
+        { model: User, as: 'author', attributes: ['name', 'profilePicture', 'headline'] },
+        { 
+          model: Comment, 
+          include: [{ model: User, attributes: ['name', 'profilePicture'] }] 
+        },
+        { model: User, as: 'likes', attributes: ['id'] }
+      ],
+      order: [['createdAt', 'DESC']]
+    });
+    
+    // Map for frontend compatibility
+    const mapped = posts.map(p => {
+      const pJson = p.toJSON();
+      return {
+        ...pJson,
+        _id: p.id,
+        author: { ...pJson.author, _id: pJson.authorId },
+        likes: pJson.likes.map(l => l.id),
+        comments: pJson.Comments.map(c => ({
+          _id: c.id,
+          user: { ...c.User, _id: c.userId },
+          text: c.text,
+          createdAt: c.createdAt
+        }))
+      };
+    });
+    
+    res.json(mapped);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
 // @desc    Like or Unlike a post
-// @route   PUT /api/posts/:id/like
-// @access  Private
 exports.toggleLike = async (req, res) => {
   try {
-    const post = await Post.findById(req.params.id);
+    const post = await Post.findByPk(req.params.id);
+    if (!post) return res.status(404).json({ message: 'Post not found' });
 
-    if (!post) {
-      return res.status(404).json({ message: 'Post not found' });
-    }
+    const like = await PostLike.findOne({
+      where: { PostId: post.id, UserId: req.user.id }
+    });
 
-    const index = post.likes.indexOf(req.user._id);
-
-    if (index === -1) {
-      // Liked — create notification for post author (not for self-likes)
-      post.likes.push(req.user._id);
-      if (post.author.toString() !== req.user._id.toString()) {
+    if (!like) {
+      await PostLike.create({ PostId: post.id, UserId: req.user.id });
+      // Notify author
+      if (post.authorId !== req.user.id) {
         await Notification.create({
-          recipient: post.author,
+          recipientId: post.authorId,
           type: 'Like',
-          relatedUser: req.user._id,
-          relatedPost: post._id
+          relatedUserId: req.user.id
+          // Note: MySQL Notification model might need a relatedPostId column if you want to link it
         });
       }
     } else {
-      post.likes.splice(index, 1);
+      await like.destroy();
     }
 
-    await post.save();
-    res.json(post.likes);
+    const updatedPost = await Post.findByPk(req.params.id, {
+      include: [{ model: User, as: 'likes', attributes: ['id'] }]
+    });
+    
+    res.json(updatedPost.likes.map(l => l.id));
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
 // @desc    Add comment to post
-// @route   POST /api/posts/:id/comment
-// @access  Private
 exports.addComment = async (req, res) => {
   try {
     const { text } = req.body;
-    const post = await Post.findById(req.params.id);
+    const post = await Post.findByPk(req.params.id);
+    if (!post) return res.status(404).json({ message: 'Post not found' });
 
-    if (!post) {
-      return res.status(404).json({ message: 'Post not found' });
-    }
-
-    const newComment = {
-      user: req.user._id,
+    await Comment.create({
+      postId: post.id,
+      userId: req.user.id,
       text
-    };
+    });
 
-    post.comments.unshift(newComment);
-    await post.save();
-
-    // Notify post author of new comment (not for self-comments)
-    if (post.author.toString() !== req.user._id.toString()) {
+    // Notify author
+    if (post.authorId !== req.user.id) {
       await Notification.create({
-        recipient: post.author,
+        recipientId: post.authorId,
         type: 'Comment',
-        relatedUser: req.user._id,
-        relatedPost: post._id
+        relatedUserId: req.user.id
       });
     }
 
-    const updatedPost = await Post.findById(req.params.id).populate('comments.user', 'name profilePicture');
-    res.json(updatedPost.comments);
+    const comments = await Comment.findAll({
+      where: { postId: post.id },
+      include: [{ model: User, attributes: ['name', 'profilePicture'] }],
+      order: [['createdAt', 'DESC']]
+    });
+    
+    const mapped = comments.map(c => ({
+      _id: c.id,
+      user: { ...c.User.toJSON(), _id: c.userId },
+      text: c.text,
+      createdAt: c.createdAt
+    }));
+    
+    res.json(mapped);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
 // @desc    Delete post
-// @route   DELETE /api/posts/:id
-// @access  Private
 exports.deletePost = async (req, res) => {
   try {
-    const post = await Post.findById(req.params.id);
+    const post = await Post.findByPk(req.params.id);
+    if (!post) return res.status(404).json({ message: 'Post not found' });
 
-    if (!post) {
-      return res.status(404).json({ message: 'Post not found' });
-    }
-
-    if (post.author.toString() !== req.user._id.toString()) {
+    if (post.authorId !== req.user.id) {
       return res.status(401).json({ message: 'User not authorized' });
     }
 
-    await post.deleteOne();
+    await post.destroy();
     res.json({ message: 'Post removed' });
   } catch (error) {
     res.status(500).json({ message: error.message });

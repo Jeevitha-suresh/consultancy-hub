@@ -1,6 +1,5 @@
-const User = require('../models/User');
-const Post = require('../models/Post');
-const Job = require('../models/Job');
+const { User, Post, Job } = require('../models_sql');
+const { Op } = require('sequelize');
 const bcrypt = require('bcryptjs');
 
 // @desc    Get all users (Admin)
@@ -8,8 +7,10 @@ const bcrypt = require('bcryptjs');
 // @access  Private/Admin
 exports.getUsers = async (req, res) => {
   try {
-    const users = await User.find({});
-    res.json(users);
+    const users = await User.findAll();
+    // Map id to _id for frontend compatibility
+    const mappedUsers = users.map(u => ({ ...u.toJSON(), _id: u.id }));
+    res.json(mappedUsers);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -20,8 +21,8 @@ exports.getUsers = async (req, res) => {
 // @access  Private/Admin
 exports.deleteUser = async (req, res) => {
   try {
-    await User.findByIdAndDelete(req.params.id);
-    await Post.deleteMany({ author: req.params.id });
+    await User.destroy({ where: { id: req.params.id } });
+    await Post.destroy({ where: { authorId: req.params.id } });
     res.json({ message: 'User removed' });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -51,7 +52,7 @@ exports.createRecruiter = async (req, res) => {
       return res.status(400).json({ message: 'Please provide name, email and password' });
     }
 
-    const userExists = await User.findOne({ email });
+    const userExists = await User.findOne({ where: { email } });
     if (userExists) {
       return res.status(400).json({ message: 'User with this email already exists' });
     }
@@ -65,7 +66,7 @@ exports.createRecruiter = async (req, res) => {
     });
 
     res.status(201).json({
-      _id: recruiter._id,
+      _id: recruiter.id,
       name: recruiter.name,
       email: recruiter.email,
       role: recruiter.role,
@@ -82,8 +83,9 @@ exports.createRecruiter = async (req, res) => {
 // @access  Private/Admin
 exports.getRecruiters = async (req, res) => {
   try {
-    const recruiters = await User.find({ role: 'Recruiter' }).select('-password');
-    res.json(recruiters);
+    const recruiters = await User.findAll({ where: { role: 'Recruiter' } });
+    const mapped = recruiters.map(r => ({ ...r.toJSON(), _id: r.id }));
+    res.json(mapped);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -100,7 +102,7 @@ exports.resetRecruiterPassword = async (req, res) => {
       return res.status(400).json({ message: 'Password must be at least 6 characters' });
     }
 
-    const recruiter = await User.findById(req.params.id);
+    const recruiter = await User.findByPk(req.params.id);
 
     if (!recruiter) {
       return res.status(404).json({ message: 'Recruiter not found' });
@@ -135,7 +137,7 @@ exports.adminChangePassword = async (req, res) => {
       return res.status(400).json({ message: 'New password must be at least 6 characters' });
     }
 
-    const admin = await User.findById(req.user.id).select('+password');
+    const admin = await User.findByPk(req.user.id);
 
     const isMatch = await admin.matchPassword(currentPassword);
     if (!isMatch) {

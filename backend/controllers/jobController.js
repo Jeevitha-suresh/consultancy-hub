@@ -1,29 +1,39 @@
-const Job = require('../models/Job');
-const User = require('../models/User');
-const Notification = require('../models/Notification');
+const { Job, User, Notification, JobApplication } = require('../models_sql');
+const { Op } = require('sequelize');
 
 // @desc    Create a job
 // @route   POST /api/jobs
 // @access  Private (Recruiter/Admin)
 exports.createJob = async (req, res) => {
   try {
-    if (req.user.role !== 'Recruiter' && req.user.role !== 'Admin') {
+    const role = req.user.role.toLowerCase();
+    if (role !== 'recruiter' && role !== 'admin') {
       return res.status(403).json({ message: 'Only recruiters can post jobs' });
     }
 
     const { title, company, location, description, requirements, salary } = req.body;
 
     const job = await Job.create({
-      recruiter: req.user._id,
+      recruiterId: req.user.id,
       title,
       company,
       location,
       description,
-      requirements: requirements.split(',').map(req => req.trim()),
+      requirements: typeof requirements === 'string' ? requirements.split(',').map(req => req.trim()) : requirements,
       salary
     });
 
-    res.status(201).json(job);
+    // Notify all candidates about new job
+    const candidates = await User.findAll({ where: { role: 'User' } });
+    for (const candidate of candidates) {
+      await Notification.create({
+        recipientId: candidate.id,
+        type: 'Job',
+        relatedUserId: req.user.id
+      });
+    }
+
+    res.status(201).json({ ...job.toJSON(), _id: job.id });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -37,61 +47,78 @@ exports.getJobs = async (req, res) => {
     const keyword = req.query.keyword
       ? {
           title: {
-            $regex: req.query.keyword,
-            $options: 'i',
+            [Op.like]: `%${req.query.keyword}%`
           },
         }
       : {};
 
-    const jobs = await Job.find({ ...keyword }).populate('recruiter', 'name company profilePicture');
-    res.json(jobs);
+    const jobs = await Job.findAll({
+      where: keyword,
+      include: [
+        { model: User, as: 'recruiter', attributes: ['name', 'company', 'profilePicture'] },
+        { model: User, as: 'applicants', attributes: ['id'] }
+      ]
+    });
+    
+    console.log(`🔍 Found ${jobs.length} jobs in MySQL`);
+    const mapped = jobs.map(j => {
+      const job = j.toJSON();
+      return {
+        ...job,
+        _id: job.id,
+        requirements: Array.isArray(job.requirements) ? job.requirements : [],
+        applicants: Array.isArray(job.applicants) ? job.applicants.map(a => ({ ...a, _id: a.id })) : []
+      };
+    });
+    
+    if (mapped.length > 0) console.log('First job sample:', JSON.stringify(mapped[0], null, 2));
+    res.json(mapped);
   } catch (error) {
+    console.error('❌ getJobs Error:', error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// @desc    Apply for a job (with optional resume upload)
+// @desc    Apply for a job
 // @route   POST /api/jobs/:id/apply
 // @access  Private
 exports.applyJob = async (req, res) => {
   try {
-    if (req.user.role === 'Recruiter') {
+    if (req.user.role.toLowerCase() === 'recruiter') {
       return res.status(403).json({ message: 'Recruiters cannot apply for jobs' });
     }
 
-    const job = await Job.findById(req.params.id);
-
-    if (!job) {
-      return res.status(404).json({ message: 'Job not found' });
-    }
+    const job = await Job.findByPk(req.params.id);
+    if (!job) return res.status(404).json({ message: 'Job not found' });
 
     // Check if already applied
-    const alreadyApplied = job.applicants.find(
-      (a) => a.user.toString() === req.user._id.toString()
-    );
+    const alreadyApplied = await JobApplication.findOne({
+      where: { JobId: job.id, UserId: req.user.id }
+    });
 
     if (alreadyApplied) {
       return res.status(400).json({ message: 'You have already applied for this job' });
     }
 
-    // Determine resume URL: uploaded file > user profile resume
     let resumeUrl = null;
     if (req.file) {
       resumeUrl = `/uploads/${req.file.filename}`;
     } else {
-      // Fall back to user's saved profile resume
-      const user = await User.findById(req.user._id).select('resume');
+      const user = await User.findByPk(req.user.id);
       resumeUrl = user?.resume || null;
     }
 
-    job.applicants.push({ user: req.user._id, resumeUrl });
-    await job.save();
+    await JobApplication.create({
+      JobId: job.id,
+      UserId: req.user.id,
+      resumeUrl
+    });
 
     // Notify recruiter
     await Notification.create({
-      recipient: job.recruiter,
+      recipientId: job.recruiterId,
       type: 'Job',
-      relatedUser: req.user._id
+      relatedUserId: req.user.id
     });
 
     res.json({ message: 'Application submitted successfully', resumeUrl });
@@ -100,80 +127,99 @@ exports.applyJob = async (req, res) => {
   }
 };
 
-
 // @desc    Get job applicants (Recruiter only)
-// @route   GET /api/jobs/:id/applicants
-// @access  Private (Recruiter)
 exports.getJobApplicants = async (req, res) => {
   try {
-    const job = await Job.findById(req.params.id).populate('applicants.user', 'name email headline profilePicture');
+    const job = await Job.findByPk(req.params.id, {
+      include: [{ 
+        model: User, 
+        as: 'applicants', 
+        attributes: ['id', 'name', 'email', 'headline', 'profilePicture'],
+        through: { attributes: ['status', 'resumeUrl', 'appliedAt'] }
+      }]
+    });
 
-    if (!job) {
-      return res.status(404).json({ message: 'Job not found' });
+    if (!job) return res.status(404).json({ message: 'Job not found' });
+
+    const role = req.user.role.toLowerCase();
+    if (job.recruiterId !== req.user.id && role !== 'admin') {
+      return res.status(403).json({ message: 'Not authorized' });
     }
 
-    if (job.recruiter.toString() !== req.user._id.toString() && req.user.role !== 'Admin') {
-      return res.status(403).json({ message: 'Not authorized to view these applicants' });
-    }
+    // Transform for frontend
+    const applicants = job.applicants.map(u => ({
+      _id: `${job.id}-${u.id}`,
+      user: { ...u.toJSON(), _id: u.id },
+      status: u.JobApplication.status,
+      resumeUrl: u.JobApplication.resumeUrl,
+      appliedAt: u.JobApplication.appliedAt
+    }));
 
-    res.json(job.applicants);
+    res.json(applicants);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
 // @desc    Get recruiter's own jobs
-// @route   GET /api/jobs/my-jobs
-// @access  Private (Recruiter)
 exports.getMyJobs = async (req, res) => {
   try {
-    const jobs = await Job.find({ recruiter: req.user._id }).sort({ createdAt: -1 });
-    res.json(jobs);
+    const jobs = await Job.findAll({ 
+      where: { recruiterId: req.user.id },
+      include: [{
+        model: User,
+        as: 'applicants',
+        attributes: ['id']
+      }],
+      order: [['createdAt', 'DESC']]
+    });
+    const mapped = jobs.map(j => ({ ...j.toJSON(), _id: j.id }));
+    console.log(`🔍 Found ${jobs.length} personal jobs for recruiter ${req.user.id}`);
+    res.json(mapped);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
 // @desc    Update a job
-// @route   PUT /api/jobs/:id
-// @access  Private (Recruiter/Admin)
 exports.updateJob = async (req, res) => {
   try {
-    const job = await Job.findById(req.params.id);
+    const job = await Job.findByPk(req.params.id);
     if (!job) return res.status(404).json({ message: 'Job not found' });
 
-    if (job.recruiter.toString() !== req.user._id.toString() && req.user.role !== 'Admin') {
-      return res.status(403).json({ message: 'Not authorized to edit this job' });
+    const role = req.user.role.toLowerCase();
+    if (job.recruiterId !== req.user.id && role !== 'admin') {
+      return res.status(403).json({ message: 'Not authorized' });
     }
 
     const { title, company, location, description, requirements, salary } = req.body;
-    if (title) job.title = title;
-    if (company) job.company = company;
-    if (location) job.location = location;
-    if (description) job.description = description;
-    if (requirements) job.requirements = typeof requirements === 'string' ? requirements.split(',').map(r => r.trim()) : requirements;
-    if (salary !== undefined) job.salary = salary;
+    await job.update({
+      title: title || job.title,
+      company: company || job.company,
+      location: location || job.location,
+      description: description || job.description,
+      requirements: requirements ? (typeof requirements === 'string' ? requirements.split(',').map(r => r.trim()) : requirements) : job.requirements,
+      salary: salary !== undefined ? salary : job.salary
+    });
 
-    const updated = await job.save();
-    res.json(updated);
+    res.json({ ...job.toJSON(), _id: job.id });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
 // @desc    Delete a job
-// @route   DELETE /api/jobs/:id
-// @access  Private (Recruiter/Admin)
 exports.deleteJob = async (req, res) => {
   try {
-    const job = await Job.findById(req.params.id);
+    const job = await Job.findByPk(req.params.id);
     if (!job) return res.status(404).json({ message: 'Job not found' });
 
-    if (job.recruiter.toString() !== req.user._id.toString() && req.user.role !== 'Admin') {
-      return res.status(403).json({ message: 'Not authorized to delete this job' });
+    const role = req.user.role.toLowerCase();
+    if (job.recruiterId !== req.user.id && role !== 'admin') {
+      return res.status(403).json({ message: 'Not authorized' });
     }
 
-    await Job.findByIdAndDelete(req.params.id);
+    await job.destroy();
     res.json({ message: 'Job deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -181,27 +227,26 @@ exports.deleteJob = async (req, res) => {
 };
 
 // @desc    Get candidate's applied jobs
-// @route   GET /api/jobs/my-applications
-// @access  Private (User/Candidate)
 exports.getMyApplications = async (req, res) => {
   try {
-    const jobs = await Job.find({ 'applicants.user': req.user._id })
-      .populate('recruiter', 'name profilePicture')
-      .sort({ createdAt: -1 });
-
-    const applications = jobs.map(job => {
-      const applicant = job.applicants.find(a => a.user.toString() === req.user._id.toString());
-      return {
-        _id: job._id,
-        title: job.title,
-        company: job.company,
-        location: job.location,
-        salary: job.salary,
-        recruiter: job.recruiter,
-        status: applicant?.status || 'Pending',
-        appliedAt: applicant?.appliedAt
-      };
+    const user = await User.findByPk(req.user.id, {
+      include: [{
+        model: Job,
+        as: 'appliedJobs',
+        include: [{ model: User, as: 'recruiter', attributes: ['id', 'name', 'profilePicture', 'company'] }]
+      }]
     });
+
+    const applications = user.appliedJobs.map(job => ({
+      _id: job.id,
+      title: job.title,
+      company: job.company,
+      location: job.location,
+      salary: job.salary,
+      recruiter: job.recruiter,
+      status: job.JobApplication.status,
+      appliedAt: job.JobApplication.appliedAt
+    })).sort((a, b) => new Date(b.appliedAt) - new Date(a.appliedAt));
 
     res.json(applications);
   } catch (error) {
@@ -209,34 +254,32 @@ exports.getMyApplications = async (req, res) => {
   }
 };
 
-// @desc    Update applicant status (Recruiter)
-// @route   PUT /api/jobs/:id/applicants/:userId/status
-// @access  Private (Recruiter/Admin)
+// @desc    Update applicant status
 exports.updateApplicantStatus = async (req, res) => {
   try {
     const { status } = req.body;
-    if (!['Pending', 'Reviewed', 'Accepted', 'Rejected'].includes(status)) {
-      return res.status(400).json({ message: 'Invalid status value' });
-    }
-
-    const job = await Job.findById(req.params.id);
+    const job = await Job.findByPk(req.params.id);
     if (!job) return res.status(404).json({ message: 'Job not found' });
 
-    if (job.recruiter.toString() !== req.user._id.toString() && req.user.role !== 'Admin') {
+    const role = req.user.role.toLowerCase();
+    if (job.recruiterId !== req.user.id && role !== 'admin') {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
-    const applicant = job.applicants.find(a => a.user.toString() === req.params.userId);
-    if (!applicant) return res.status(404).json({ message: 'Applicant not found' });
+    const application = await JobApplication.findOne({
+      where: { JobId: req.params.id, UserId: req.params.userId }
+    });
 
-    applicant.status = status;
-    await job.save();
+    if (!application) return res.status(404).json({ message: 'Applicant not found' });
+
+    application.status = status;
+    await application.save();
 
     // Notify candidate
     await Notification.create({
-      recipient: req.params.userId,
+      recipientId: req.params.userId,
       type: 'Job',
-      relatedUser: req.user._id
+      relatedUserId: req.user.id
     });
 
     res.json({ message: 'Status updated successfully', status });
@@ -245,32 +288,40 @@ exports.updateApplicantStatus = async (req, res) => {
   }
 };
 
-// @desc    Get all applicants across recruiter's jobs (Recruiter dashboard)
-// @route   GET /api/jobs/all-applicants
-// @access  Private (Recruiter)
+// @desc    Get all applicants across recruiter's jobs
 exports.getAllApplicants = async (req, res) => {
   try {
-    const jobs = await Job.find({ recruiter: req.user._id })
-      .populate('applicants.user', 'name email headline profilePicture resume');
+    const jobs = await Job.findAll({
+      where: { recruiterId: req.user.id },
+      include: [{
+        model: User,
+        as: 'applicants',
+        attributes: ['id', 'name', 'email', 'headline', 'profilePicture'],
+        through: { attributes: ['status', 'resumeUrl', 'appliedAt'] }
+      }]
+    });
 
     const applicants = [];
     jobs.forEach(job => {
       job.applicants.forEach(app => {
         applicants.push({
-          jobId: job._id,
+          jobId: job.id,
           jobTitle: job.title,
           company: job.company,
-          applicantId: app._id,
-          user: app.user,
-          status: app.status,
-          resumeUrl: app.resumeUrl || null,
-          appliedAt: app.appliedAt
+          applicantId: `${job.id}-${app.id}`, // Use composite ID
+          user: { ...app.toJSON(), _id: app.id },
+          status: app.JobApplication.status,
+          resumeUrl: app.JobApplication.resumeUrl || null,
+          appliedAt: app.JobApplication.appliedAt
         });
       });
     });
 
+    console.log(`🔍 Found ${applicants.length} total applicants for recruiter ${req.user.id}`);
+    console.log('Applicants Data:', JSON.stringify(applicants, null, 2));
     res.json(applicants);
   } catch (error) {
+    console.error('❌ getAllApplicants Error:', error);
     res.status(500).json({ message: error.message });
   }
 };

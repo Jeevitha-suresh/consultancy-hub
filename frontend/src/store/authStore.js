@@ -43,5 +43,9 @@ export const useAuthStore = create((set) => ({
     set({ user: null });
   },
 
+  setUser: (userData) => {
+    set({ user: userData });
+  },
+
   reset: () => set({ isLoading: false, isError: false, isSuccess: false, message: '' })
 }));

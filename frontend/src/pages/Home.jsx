@@ -1,18 +1,28 @@
 import { useEffect } from 'react';
 import { usePostStore } from '../store/postStore';
+import { useJobStore } from '../store/jobStore';
 import PostForm from '../components/posts/PostForm';
 import PostItem from '../components/posts/PostItem';
 import { useAuthStore } from '../store/authStore';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Briefcase, MessageSquare, Bell } from 'lucide-react';
 
 const Home = () => {
-  const { posts, getPosts, isLoading } = usePostStore();
+  const { posts, getPosts, isLoading: postsLoading } = usePostStore();
+  const { jobs, getJobs, isLoading: jobsLoading } = useJobStore();
   const { user } = useAuthStore();
 
+  const navigate = useNavigate();
+
   useEffect(() => {
-    getPosts();
-  }, [getPosts]);
+    const role = user?.role?.toLowerCase();
+    if (role === 'admin') navigate('/admin', { replace: true });
+    else if (role === 'recruiter') navigate('/recruiter-dashboard', { replace: true });
+    else {
+      getPosts();
+      getJobs();
+    }
+  }, [getPosts, getJobs, user, navigate]);
 
   const profilePicUrl = user?.profilePicture 
     ? (user.profilePicture.startsWith('http') ? user.profilePicture : `http://localhost:5000${user.profilePicture}`)
@@ -66,7 +76,7 @@ const Home = () => {
       <div className="col-span-1 md:col-span-8 lg:col-span-6 space-y-6">
         <PostForm />
         
-        {isLoading ? (
+        {postsLoading ? (
           <div className="flex flex-col items-center justify-center py-24 gap-4">
             <div className="relative">
               <div className="h-12 w-12 rounded-full border-4 border-emerald-100 border-t-emerald-600 animate-spin"></div>
@@ -130,6 +140,38 @@ const Home = () => {
             ))}
 
           </ul>
+        </div>
+
+        {/* New Recent Jobs Section */}
+        <div className="bg-white p-7 rounded-[2rem] shadow-sm border border-slate-200/60 sticky top-[28rem] mt-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 bg-blue-50 rounded-xl flex items-center justify-center">
+                <Briefcase className="w-4 h-4 text-blue-600" />
+              </div>
+              <h3 className="font-extrabold text-slate-900 text-xs uppercase tracking-widest">Recent Jobs</h3>
+            </div>
+            <Link to="/jobs" className="text-[10px] font-black text-emerald-600 hover:text-emerald-700 uppercase tracking-tighter transition-colors">View All</Link>
+          </div>
+          
+          <div className="space-y-5">
+            {jobs.length > 0 ? (
+              jobs.slice(0, 3).map((job) => (
+                <div key={job._id} className="group cursor-pointer">
+                  <Link to="/jobs" className="block">
+                    <p className="font-bold text-slate-800 group-hover:text-emerald-600 transition-colors text-[13px] leading-snug truncate">{job.title}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[10px] text-slate-400 font-bold uppercase">{job.company}</span>
+                      <span className="w-1 h-1 bg-slate-200 rounded-full"></span>
+                      <span className="text-[10px] text-emerald-500 font-extrabold uppercase">{job.location}</span>
+                    </div>
+                  </Link>
+                </div>
+              ))
+            ) : (
+              <p className="text-[11px] text-slate-400 font-medium italic">No new jobs posted yet.</p>
+            )}
+          </div>
         </div>
       </div>
 

@@ -25,7 +25,9 @@ const SidebarLayout = ({ children }) => {
       { id: 'notifications', label: 'Notifications', icon: <Bell className="w-5 h-5" />, path: '/notifications' },
     ];
 
-    if (user.role === 'Admin') {
+    const role = user?.role?.toLowerCase();
+
+    if (role === 'admin') {
       return [
         { id: 'admin-users', label: 'All Users', icon: <Users className="w-5 h-5" />, path: '/admin?tab=users' },
         { id: 'admin-recruiters', label: 'Recruiters', icon: <UserPlus className="w-5 h-5" />, path: '/admin?tab=recruiters' },
@@ -35,7 +37,7 @@ const SidebarLayout = ({ children }) => {
       ];
     }
 
-    if (user.role === 'Recruiter') {
+    if (role === 'recruiter') {
       return [
         { id: 'recruiter-dash', label: 'Dashboard', icon: <Home className="w-5 h-5" />, path: '/recruiter-dashboard?tab=dashboard' },
         { id: 'post-job', label: 'Post a Job', icon: <PlusCircle className="w-5 h-5" />, path: '/recruiter-dashboard?tab=post-job' },

@@ -298,7 +298,7 @@ const Jobs = () => {
                     )}
                     <div className="flex items-center text-xs font-bold text-slate-600">
                       <Users className="h-3.5 w-3.5 mr-2 text-emerald-600" />
-                      {job.applicants.length} Applicants
+                      {(job.applicants?.length || 0)} Applicants
                     </div>
                   </div>
 

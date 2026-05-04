@@ -50,6 +50,12 @@ const notificationContent = (notification) => {
           ? `${name} applied for your job posting`
           : `Update on your job application`
       };
+    case 'Message':
+      return {
+        icon: <MessageSquare className="w-3 h-3 text-white" />,
+        bg: 'bg-blue-500',
+        message: `${name} sent you a message`
+      };
     default:
       return {
         icon: <Bell className="w-3 h-3 text-white" />,

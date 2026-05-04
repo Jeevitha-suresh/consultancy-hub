@@ -48,11 +48,18 @@ const RecruiterDashboard = () => {
   if (user.role !== 'Recruiter') return <Navigate to="/" replace />;
 
   useEffect(() => {
+    console.log('RecruiterDashboard: Fetching data...');
     const tab = searchParams.get('tab');
     if (tab) setActiveTab(tab);
     getMyJobs();
     getAllApplicants();
-  }, [searchParams]);
+  }, [searchParams, getMyJobs, getAllApplicants]);
+
+  useEffect(() => {
+    if (activeTab === 'applicants') {
+      getAllApplicants();
+    }
+  }, [activeTab, getAllApplicants]);
 
   const handleTabChange = (tabId) => {
     setSearchParams({ tab: tabId });
@@ -417,7 +424,7 @@ const RecruiterDashboard = () => {
                     className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-2xl">
                     <Upload className="w-6 h-6 text-white" />
                   </button>
-                  <input profilePicInputRef={profilePicInputRef} type="file" accept="image/*" className="hidden" onChange={handleProfilePicChange} />
+                  <input ref={profilePicInputRef} type="file" accept="image/*" className="hidden" onChange={handleProfilePicChange} />
                 </div>
                 <div className="text-center sm:text-left flex-1">
                   <h2 className="font-bold text-slate-900 text-2xl tracking-tight leading-tight">{user?.name}</h2>
