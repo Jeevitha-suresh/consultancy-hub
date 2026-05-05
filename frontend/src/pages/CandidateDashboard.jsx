@@ -8,6 +8,7 @@ import {
   DollarSign, ChevronRight, CheckCircle2, XCircle, Clock,
   LogOut, Upload, X, Menu, FileText, Download, AlertCircle
 } from 'lucide-react';
+import { BASE_URL } from '../utils/config';
 
 const statusConfig = {
   Pending:  { color: 'bg-amber-100 text-amber-700 border-amber-200',  icon: <Clock className="w-3.5 h-3.5" /> },
@@ -129,7 +130,7 @@ const CandidateDashboard = () => {
   ];
 
   const profilePicUrl = profilePicPreview || (user?.profilePicture
-    ? (user.profilePicture.startsWith('http') ? user.profilePicture : `http://localhost:5000${user.profilePicture}`)
+    ? (user.profilePicture.startsWith('http') ? user.profilePicture : `${BASE_URL}${user.profilePicture}`)
     : `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'U')}&background=0d9488&color=fff&size=128`);
 
   return (

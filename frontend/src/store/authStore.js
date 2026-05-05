@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import axios from 'axios';
+import { API_URL } from '../utils/config';
 
-const API_URL = 'http://localhost:5000/api/auth/';
+const AUTH_URL = `${API_URL}/auth/`;
 
 export const useAuthStore = create((set) => ({
   user: JSON.parse(localStorage.getItem('user')) || null,
@@ -13,7 +14,7 @@ export const useAuthStore = create((set) => ({
   register: async (userData) => {
     set({ isLoading: true });
     try {
-      const response = await axios.post(API_URL + 'register', userData);
+      const response = await axios.post(AUTH_URL + 'register', userData);
       if (response.data) {
         localStorage.setItem('user', JSON.stringify(response.data));
       }
@@ -27,7 +28,7 @@ export const useAuthStore = create((set) => ({
   login: async (userData) => {
     set({ isLoading: true });
     try {
-      const response = await axios.post(API_URL + 'login', userData);
+      const response = await axios.post(AUTH_URL + 'login', userData);
       if (response.data) {
         localStorage.setItem('user', JSON.stringify(response.data));
       }

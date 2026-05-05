@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { usePostStore } from '../../store/postStore';
+import { BASE_URL } from '../../utils/config';
 import { ThumbsUp, MessageSquare, Trash2, Send, Share2, Shield } from 'lucide-react';
 
 const PostItem = ({ post }) => {
@@ -25,11 +26,11 @@ const PostItem = ({ post }) => {
   };
 
   const authorPicUrl = post.author?.profilePicture?.startsWith('/uploads') 
-    ? `http://localhost:5000${post.author.profilePicture}` 
+    ? `${BASE_URL}${post.author.profilePicture}` 
     : (post.author?.profilePicture || 'https://via.placeholder.com/150');
 
   const currentUserPicUrl = user?.profilePicture?.startsWith('/uploads') 
-    ? `http://localhost:5000${user.profilePicture}` 
+    ? `${BASE_URL}${user.profilePicture}` 
     : (user?.profilePicture || 'https://via.placeholder.com/150');
 
   return (
@@ -73,7 +74,7 @@ const PostItem = ({ post }) => {
       {post.image && (
         <div className="mt-2 w-full bg-slate-50 flex justify-center border-y border-slate-100">
           <img
-            src={`http://localhost:5000${post.image}`}
+            src={`${BASE_URL}${post.image}`}
             alt="Post content"
             className="max-h-[500px] w-full object-cover"
           />
@@ -146,7 +147,7 @@ const PostItem = ({ post }) => {
           <div className="space-y-5">
             {post.comments.map((comment, index) => {
               const commentUserPicUrl = comment.user?.profilePicture?.startsWith('/uploads') 
-                ? `http://localhost:5000${comment.user.profilePicture}` 
+                ? `${BASE_URL}${comment.user.profilePicture}` 
                 : (comment.user?.profilePicture || 'https://via.placeholder.com/150');
 
               return (

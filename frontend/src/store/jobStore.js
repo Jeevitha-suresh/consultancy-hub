@@ -1,7 +1,9 @@
 import { create } from 'zustand';
 import axios from 'axios';
 
-const API_URL = 'http://localhost:5000/api/jobs/';
+import { API_URL } from '../utils/config';
+
+const JOBS_URL = `${API_URL}/jobs/`;
 
 const getAuthConfig = () => {
   const token = JSON.parse(localStorage.getItem('user'))?.token;
@@ -20,7 +22,7 @@ export const useJobStore = create((set, get) => ({
   getJobs: async (keyword = '') => {
     set({ isLoading: true });
     try {
-      const response = await axios.get(API_URL + `?keyword=${keyword}`, getAuthConfig());
+      const response = await axios.get(JOBS_URL + `?keyword=${keyword}`, getAuthConfig());
       set({ jobs: response.data, isLoading: false, isError: false });
     } catch (error) {
       const message = error.response?.data?.message || error.message;
@@ -30,7 +32,7 @@ export const useJobStore = create((set, get) => ({
 
   createJob: async (jobData) => {
     try {
-      const response = await axios.post(API_URL, jobData, getAuthConfig());
+      const response = await axios.post(JOBS_URL, jobData, getAuthConfig());
       set((state) => ({ jobs: [response.data, ...state.jobs], myJobs: [response.data, ...state.myJobs] }));
       return { success: true };
     } catch (error) {
@@ -47,7 +49,7 @@ export const useJobStore = create((set, get) => ({
       if (resumeFile) formData.append('resume', resumeFile);
 
       const response = await axios.post(
-        API_URL + `${id}/apply`,
+        JOBS_URL + `${id}/apply`,
         formData,
         {
           headers: {
@@ -68,7 +70,7 @@ export const useJobStore = create((set, get) => ({
   getMyJobs: async () => {
     set({ isLoading: true });
     try {
-      const response = await axios.get(API_URL + 'my-jobs', getAuthConfig());
+      const response = await axios.get(JOBS_URL + 'my-jobs', getAuthConfig());
       set({ myJobs: response.data, isLoading: false });
     } catch (error) {
       const message = error.response?.data?.message || error.message;
@@ -78,7 +80,7 @@ export const useJobStore = create((set, get) => ({
 
   updateJob: async (id, data) => {
     try {
-      const response = await axios.put(API_URL + id, data, getAuthConfig());
+      const response = await axios.put(JOBS_URL + id, data, getAuthConfig());
       set((state) => ({
         myJobs: state.myJobs.map((j) => (j._id === id ? response.data : j))
       }));
@@ -91,7 +93,7 @@ export const useJobStore = create((set, get) => ({
 
   deleteJob: async (id) => {
     try {
-      await axios.delete(API_URL + id, getAuthConfig());
+      await axios.delete(JOBS_URL + id, getAuthConfig());
       set((state) => ({ myJobs: state.myJobs.filter((j) => j._id !== id) }));
       return { success: true };
     } catch (error) {
@@ -104,7 +106,7 @@ export const useJobStore = create((set, get) => ({
   getMyApplications: async () => {
     set({ isLoading: true });
     try {
-      const response = await axios.get(API_URL + 'my-applications', getAuthConfig());
+      const response = await axios.get(JOBS_URL + 'my-applications', getAuthConfig());
       set({ myApplications: response.data, isLoading: false });
     } catch (error) {
       const message = error.response?.data?.message || error.message;
@@ -116,7 +118,7 @@ export const useJobStore = create((set, get) => ({
   getAllApplicants: async () => {
     set({ isLoading: true });
     try {
-      const response = await axios.get(API_URL + 'all-applicants', getAuthConfig());
+      const response = await axios.get(JOBS_URL + 'all-applicants', getAuthConfig());
       set({ allApplicants: response.data, isLoading: false });
     } catch (error) {
       const message = error.response?.data?.message || error.message;
@@ -126,7 +128,7 @@ export const useJobStore = create((set, get) => ({
 
   updateApplicantStatus: async (jobId, userId, status) => {
     try {
-      await axios.put(API_URL + `${jobId}/applicants/${userId}/status`, { status }, getAuthConfig());
+      await axios.put(JOBS_URL + `${jobId}/applicants/${userId}/status`, { status }, getAuthConfig());
       set((state) => ({
         allApplicants: state.allApplicants.map((a) =>
           a.jobId === jobId && a.user?._id === userId ? { ...a, status } : a

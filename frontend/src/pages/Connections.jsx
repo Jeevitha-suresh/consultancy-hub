@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useConnectionStore } from '../store/connectionStore';
+import { BASE_URL } from '../utils/config';
 
 const Connections = () => {
   const { connections, requests, getConnections, acceptRequest, rejectRequest, isLoading } = useConnectionStore();
@@ -34,7 +35,7 @@ const Connections = () => {
                   <Link to={`/profile/${request._id}`}>
                     <img
                       className="h-14 w-14 rounded-xl object-cover border border-slate-100 shadow-sm"
-                      src={request.profilePicture.startsWith('/uploads') ? `http://localhost:5000${request.profilePicture}` : (request.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(request.name)}&background=0d4f3f&color=fff`)}
+                      src={request.profilePicture.startsWith('/uploads') ? `${BASE_URL}${request.profilePicture}` : (request.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(request.name)}&background=0d4f3f&color=fff`)}
                       alt={request.name}
                     />
                   </Link>
@@ -81,7 +82,7 @@ const Connections = () => {
                   <Link to={`/profile/${connection._id}`}>
                     <img
                       className="mx-auto h-20 w-20 rounded-2xl object-cover mb-4 ring-4 ring-slate-50 shadow-md group-hover:scale-105 transition-transform"
-                      src={connection.profilePicture.startsWith('/uploads') ? `http://localhost:5000${connection.profilePicture}` : (connection.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(connection.name)}&background=0d4f3f&color=fff`)}
+                      src={connection.profilePicture.startsWith('/uploads') ? `${BASE_URL}${connection.profilePicture}` : (connection.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(connection.name)}&background=0d4f3f&color=fff`)}
                       alt={connection.name}
                     />
                     <h4 className="text-sm font-bold text-slate-900 group-hover:text-emerald-600 transition-colors">{connection.name}</h4>

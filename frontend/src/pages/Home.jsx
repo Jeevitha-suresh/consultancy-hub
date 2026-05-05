@@ -5,6 +5,7 @@ import PostForm from '../components/posts/PostForm';
 import PostItem from '../components/posts/PostItem';
 import { useAuthStore } from '../store/authStore';
 import { Link, useNavigate } from 'react-router-dom';
+import { BASE_URL } from '../utils/config';
 import { Briefcase, MessageSquare, Bell } from 'lucide-react';
 
 const Home = () => {
@@ -25,7 +26,7 @@ const Home = () => {
   }, [getPosts, getJobs, user, navigate]);
 
   const profilePicUrl = user?.profilePicture 
-    ? (user.profilePicture.startsWith('http') ? user.profilePicture : `http://localhost:5000${user.profilePicture}`)
+    ? (user.profilePicture.startsWith('http') ? user.profilePicture : `${BASE_URL}${user.profilePicture}`)
     : `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'U')}&background=0d4f3f&color=fff&size=128`;
 
   return (

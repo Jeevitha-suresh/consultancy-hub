@@ -4,6 +4,7 @@ import { useMessageStore } from '../store/messageStore';
 import { useConnectionStore } from '../store/connectionStore';
 import { useJobStore } from '../store/jobStore';
 import { MessageSquare, Send } from 'lucide-react';
+import { BASE_URL } from '../utils/config';
 
 const Messaging = () => {
   const { user } = useAuthStore();
@@ -117,7 +118,7 @@ const Messaging = () => {
                 >
                   <div className="relative">
                     <img
-                      src={contact.profilePicture?.startsWith('/uploads') ? `http://localhost:5000${contact.profilePicture}` : (contact.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(contact.name)}&background=0d4f3f&color=fff`)}
+                      src={contact.profilePicture?.startsWith('/uploads') ? `${BASE_URL}${contact.profilePicture}` : (contact.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(contact.name)}&background=0d4f3f&color=fff`)}
                       alt={contact.name}
                       className="h-12 w-12 rounded-xl object-cover shadow-sm"
                     />
@@ -145,7 +146,7 @@ const Messaging = () => {
               <div className="p-5 border-b border-slate-100 bg-white/80 backdrop-blur-md flex items-center justify-between shadow-sm z-10">
                 <div className="flex items-center">
                   <img
-                    src={selectedUser.profilePicture.startsWith('/uploads') ? `http://localhost:5000${selectedUser.profilePicture}` : (selectedUser.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(selectedUser.name)}&background=0d4f3f&color=fff`)}
+                    src={selectedUser.profilePicture.startsWith('/uploads') ? `${BASE_URL}${selectedUser.profilePicture}` : (selectedUser.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(selectedUser.name)}&background=0d4f3f&color=fff`)}
                     alt={selectedUser.name}
                     className="h-10 w-10 rounded-xl object-cover mr-4 shadow-sm"
                   />

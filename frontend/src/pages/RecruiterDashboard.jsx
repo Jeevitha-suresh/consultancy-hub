@@ -4,6 +4,7 @@ import { useJobStore } from '../store/jobStore';
 import { useUserStore } from '../store/userStore';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { useRef } from 'react';
+import { BASE_URL } from '../utils/config';
 import {
   LayoutDashboard, PlusCircle, Briefcase, Users, LogOut,
   MapPin, DollarSign, Pencil, Trash2, X, Check, Menu,
@@ -141,7 +142,7 @@ const RecruiterDashboard = () => {
   ];
 
   const avatarUrl = profilePicPreview || (user?.profilePicture
-    ? (user.profilePicture.startsWith('http') ? user.profilePicture : `http://localhost:5000${user.profilePicture}`)
+    ? (user.profilePicture.startsWith('http') ? user.profilePicture : `${BASE_URL}${user.profilePicture}`)
     : `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name||'R')}&background=0f5c4a&color=fff&size=128`);
 
   const inputCls = "w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition-colors";
@@ -341,7 +342,7 @@ const RecruiterDashboard = () => {
                 <tbody className="divide-y divide-slate-50">
                   {allApplicants.map((app,i)=>{
                     const pic = app.user?.profilePicture?.startsWith('/uploads')
-                      ? `http://localhost:5000${app.user.profilePicture}`
+                      ? `${BASE_URL}${app.user.profilePicture}`
                       : `https://ui-avatars.com/api/?name=${encodeURIComponent(app.user?.name||'?')}&background=e0e7ff&color=4338ca&size=64`;
                     return (
                       <tr key={i} className="hover:bg-slate-50 transition-colors">
@@ -364,7 +365,7 @@ const RecruiterDashboard = () => {
                         <td className="px-5 py-4">
                           {app.resumeUrl ? (
                             <a
-                              href={`http://localhost:5000${app.resumeUrl}`}
+                              href={`${BASE_URL}${app.resumeUrl}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition-colors"

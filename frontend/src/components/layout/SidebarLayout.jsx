@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
+import { BASE_URL } from '../../utils/config';
 import {
   Home, Briefcase, ClipboardList, User, MessageSquare, Bell,
   LogOut, Menu, X, ChevronRight, ShieldCheck, UserPlus, KeyRound, PlusCircle, Users
@@ -61,7 +62,7 @@ const SidebarLayout = ({ children }) => {
   const navItems = getNavItems();
 
   const avatarUrl = user?.profilePicture
-    ? (user.profilePicture.startsWith('http') ? user.profilePicture : `http://localhost:5000${user.profilePicture}`)
+    ? (user.profilePicture.startsWith('http') ? user.profilePicture : `${BASE_URL}${user.profilePicture}`)
     : `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'U')}&background=0d4f3f&color=fff&size=128`;
 
   return (

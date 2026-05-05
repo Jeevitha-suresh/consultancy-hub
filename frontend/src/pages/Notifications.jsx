@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useNotificationStore } from '../store/notificationStore';
 import { Link } from 'react-router-dom';
 import { Bell, ThumbsUp, MessageSquare, Users, Briefcase } from 'lucide-react';
+import { BASE_URL } from '../utils/config';
 
 // Returns a human-readable relative time string
 const timeAgo = (dateString) => {
@@ -121,7 +122,7 @@ const Notifications = () => {
           {notifications.map((notification) => {
             const { icon, bg, message } = notificationContent(notification);
             const profilePicUrl = notification.relatedUser?.profilePicture?.startsWith('/uploads')
-              ? `http://localhost:5000${notification.relatedUser.profilePicture}`
+              ? `${BASE_URL}${notification.relatedUser.profilePicture}`
               : (notification.relatedUser?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(notification.relatedUser?.name || 'User')}&background=0d4f3f&color=fff`);
 
             return (

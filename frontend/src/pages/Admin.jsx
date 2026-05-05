@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useAdminStore } from '../store/adminStore';
 import { useAuthStore } from '../store/authStore';
 import { useSearchParams, Navigate } from 'react-router-dom';
+import { BASE_URL } from '../utils/config';
 import {
   Users, UserPlus, Trash2, KeyRound, RefreshCw, Lock,
   Eye, EyeOff, X, Check, AlertCircle, ShieldCheck, Copy, 
@@ -245,7 +246,7 @@ const Admin = () => {
                     <tr key={r._id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <img className="w-9 h-9 rounded-full object-cover" src={r.profilePicture?.startsWith('/uploads') ? `http://localhost:5000${r.profilePicture}` : `https://ui-avatars.com/api/?name=${encodeURIComponent(r.name)}&background=0d4f3f&color=fff`} alt={r.name} />
+                          <img className="w-9 h-9 rounded-full object-cover" src={r.profilePicture?.startsWith('/uploads') ? `${BASE_URL}${r.profilePicture}` : `https://ui-avatars.com/api/?name=${encodeURIComponent(r.name)}&background=0d4f3f&color=fff`} alt={r.name} />
                           <div><p className="font-bold text-slate-800">{r.name}</p><p className="text-xs text-slate-400">{r.email}</p></div>
                         </div>
                       </td>

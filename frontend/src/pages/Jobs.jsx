@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useJobStore } from '../store/jobStore';
 import { useAuthStore } from '../store/authStore';
+import { BASE_URL } from '../utils/config';
 import { Briefcase, MapPin, DollarSign, Search, Users, X, Upload, FileText, CheckCircle2, AlertCircle } from 'lucide-react';
 
 const Jobs = () => {
@@ -274,7 +275,7 @@ const Jobs = () => {
                   <div className="flex items-start justify-between mb-6">
                     <div className="w-14 h-14 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center overflow-hidden shadow-inner group-hover:scale-105 transition-transform">
                       <img 
-                        src={job.recruiter?.profilePicture?.startsWith('/uploads') ? `http://localhost:5000${job.recruiter.profilePicture}` : (job.recruiter?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(job.company)}&background=0d4f3f&color=fff`)} 
+                        src={job.recruiter?.profilePicture?.startsWith('/uploads') ? `${BASE_URL}${job.recruiter.profilePicture}` : (job.recruiter?.profilePicture || `https://ui-avatars.com/api/?name=${encodeURIComponent(job.company)}&background=0d4f3f&color=fff`)} 
                         alt={job.company} 
                         className="w-full h-full object-cover"
                       />

@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 import axios from 'axios';
 import { io } from 'socket.io-client';
+import { API_URL } from '../utils/config';
 
-const API_URL = 'http://localhost:5000/api/messages/';
+const MESSAGES_URL = `${API_URL}/messages/`;
 let socket;
 
 export const useMessageStore = create((set, get) => ({
@@ -17,7 +18,7 @@ export const useMessageStore = create((set, get) => ({
     try {
       const token = JSON.parse(localStorage.getItem('user'))?.token;
       const config = { headers: { Authorization: `Bearer ${token}` } };
-      const response = await axios.get(API_URL + 'conversations', config);
+      const response = await axios.get(MESSAGES_URL + 'conversations', config);
       set({ conversations: response.data, isLoading: false, isError: false });
     } catch (error) {
       const message = error.response?.data?.message || error.message;
@@ -27,7 +28,8 @@ export const useMessageStore = create((set, get) => ({
 
   initSocket: (userId) => {
     if (!socket) {
-      socket = io('http://localhost:5000');
+      const socketUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace('/api', '');
+      socket = io(socketUrl);
       socket.emit('join', String(userId));
 
       socket.on('receiveMessage', (message) => {
@@ -52,7 +54,7 @@ export const useMessageStore = create((set, get) => ({
     try {
       const token = JSON.parse(localStorage.getItem('user'))?.token;
       const config = { headers: { Authorization: `Bearer ${token}` } };
-      const response = await axios.get(API_URL + userId, config);
+      const response = await axios.get(MESSAGES_URL + userId, config);
       set({ messages: response.data, isLoading: false, isError: false });
     } catch (error) {
       const message = error.response?.data?.message || error.message;
@@ -65,7 +67,7 @@ export const useMessageStore = create((set, get) => ({
       const token = JSON.parse(localStorage.getItem('user'))?.token;
       const config = { headers: { Authorization: `Bearer ${token}` } };
       
-      const response = await axios.post(API_URL, { receiverId, content }, config);
+      const response = await axios.post(MESSAGES_URL, { receiverId, content }, config);
       const newMessage = response.data;
 
       // Update local state immediately

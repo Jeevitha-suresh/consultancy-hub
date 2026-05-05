@@ -4,6 +4,7 @@ import { useUserStore } from '../store/userStore';
 import { useAuthStore } from '../store/authStore';
 import { useConnectionStore } from '../store/connectionStore';
 import { Edit, Camera, ShieldCheck } from 'lucide-react';
+import { BASE_URL } from '../utils/config';
 
 const Profile = () => {
   const { id } = useParams();
@@ -79,7 +80,7 @@ const Profile = () => {
   const isOwnProfile = currentUser?._id === profile._id;
 
   const defaultPicUrl = profile.profilePicture?.startsWith('/uploads') 
-    ? `http://localhost:5000${profile.profilePicture}` 
+    ? `${BASE_URL}${profile.profilePicture}` 
     : (profile.profilePicture || 'https://via.placeholder.com/150');
 
   const displayPicUrl = previewUrl || defaultPicUrl;

@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { usePostStore } from '../../store/postStore';
 import { useAuthStore } from '../../store/authStore';
+import { BASE_URL } from '../../utils/config';
 import { Image, Send, X } from 'lucide-react';
 
 const PostForm = () => {
@@ -27,7 +28,7 @@ const PostForm = () => {
   };
 
   const profilePicUrl = user?.profilePicture?.startsWith('/uploads') 
-    ? `http://localhost:5000${user.profilePicture}` 
+    ? `${BASE_URL}${user.profilePicture}` 
     : (user?.profilePicture || 'https://via.placeholder.com/150');
 
   return (
