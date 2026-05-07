@@ -1,7 +1,9 @@
 import { create } from 'zustand';
 import axios from 'axios';
+import { API_URL as BASE_API_URL } from '../utils/config';
 
-const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api') + '/connections/';
+const API_URL = `${BASE_API_URL}/connections/`;
+
 
 export const useConnectionStore = create((set, get) => ({
   connections: [],

@@ -1,8 +1,10 @@
 import { create } from 'zustand';
 import axios from 'axios';
+import { API_URL as BASE_API_URL } from '../utils/config';
 
-const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api') + '/admin/';
-const AUTH_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api') + '/auth/';
+const API_URL = `${BASE_API_URL}/admin/`;
+const AUTH_URL = `${BASE_API_URL}/auth/`;
+
 
 const getAuthConfig = () => {
   const token = JSON.parse(localStorage.getItem('user'))?.token;

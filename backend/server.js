@@ -38,8 +38,10 @@ connectMySQL().then(async () => {
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:5174',
-  'https://consultancy-hub.vercel.app'
-];
+  'https://consultancy-hub.vercel.app',
+  process.env.FRONTEND_URL
+].filter(Boolean);
+
 
 const app = express();
 const server = http.createServer(app);

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import axios from 'axios';
 import { io } from 'socket.io-client';
-import { API_URL } from '../utils/config';
+import { API_URL, BASE_URL } from '../utils/config';
 
 const MESSAGES_URL = `${API_URL}/messages/`;
 let socket;
@@ -28,8 +28,8 @@ export const useMessageStore = create((set, get) => ({
 
   initSocket: (userId) => {
     if (!socket) {
-      const socketUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace('/api', '');
-      socket = io(socketUrl);
+      socket = io(BASE_URL);
+
       socket.emit('join', String(userId));
 
       socket.on('receiveMessage', (message) => {

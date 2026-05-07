@@ -1,7 +1,9 @@
 import { create } from 'zustand';
 import axios from 'axios';
+import { API_URL as BASE_API_URL } from '../utils/config';
 
-const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api') + '/posts/';
+const API_URL = `${BASE_API_URL}/posts/`;
+
 
 export const usePostStore = create((set, get) => ({
   posts: [],

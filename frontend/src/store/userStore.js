@@ -1,8 +1,10 @@
 import { create } from 'zustand';
 import axios from 'axios';
 import { useAuthStore } from './authStore';
+import { API_URL as BASE_API_URL } from '../utils/config';
 
-const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api') + '/users/';
+const API_URL = `${BASE_API_URL}/users/`;
+
 
 export const useUserStore = create((set, get) => ({
   profile: null,
